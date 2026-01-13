@@ -1,6 +1,14 @@
 import { useState } from 'react'
+import { useAuth } from './contexts/AuthContext'
+import AuthModal from './components/auth/AuthModal'
+import ProfileModal from './components/profile/ProfileModal'
+import UserMenu from './components/layout/UserMenu'
 
 function App() {
+  const { user, loading } = useAuth()
+  const [authModalOpen, setAuthModalOpen] = useState(false)
+  const [profileModalOpen, setProfileModalOpen] = useState(false)
+
   const [meals, setMeals] = useState([
     { id: 1, name: 'Śniadanie', time: '08:00', prepared: false },
     { id: 2, name: 'Obiad', time: '13:00', prepared: false },
@@ -13,18 +21,60 @@ function App() {
     ))
   }
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Ładowanie...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-5xl font-bold text-orange-600 mb-2">
-            🍽️ HomeEatings
-          </h1>
-          <p className="text-gray-600 text-lg">
-            Zarządzaj posiłkami w Twoim domu
-          </p>
+      {/* Navigation */}
+      <nav className="bg-white shadow-md">
+        <div className="container mx-auto px-4 py-4 max-w-6xl">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-3xl">🍽️</span>
+              <span className="text-2xl font-bold text-orange-600">HomeEatings</span>
+            </div>
+
+            {user ? (
+              <UserMenu onOpenProfile={() => setProfileModalOpen(true)} />
+            ) : (
+              <button
+                onClick={() => setAuthModalOpen(true)}
+                className="bg-orange-500 text-white px-6 py-2 rounded-lg font-semibold hover:bg-orange-600 transition-colors"
+              >
+                Zaloguj się
+              </button>
+            )}
+          </div>
         </div>
+      </nav>
+
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        {/* Welcome Message */}
+        {!user && (
+          <div className="bg-white rounded-xl shadow-lg p-6 mb-8 text-center">
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">
+              Witaj w HomeEatings!
+            </h2>
+            <p className="text-gray-600 mb-4">
+              Zaloguj się, aby synchronizować swoje posiłki i korzystać ze wszystkich funkcji.
+            </p>
+            <button
+              onClick={() => setAuthModalOpen(true)}
+              className="bg-orange-500 text-white px-8 py-3 rounded-lg font-semibold hover:bg-orange-600 transition-colors"
+            >
+              Rozpocznij teraz
+            </button>
+          </div>
+        )}
 
         {/* Meals List */}
         <div className="bg-white rounded-2xl shadow-xl p-6 mb-8">
@@ -119,6 +169,10 @@ function App() {
           <p>Wersja 1.0.0 - Twoja aplikacja do zarządzania posiłkami</p>
         </div>
       </div>
+
+      {/* Modals */}
+      <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} />
+      <ProfileModal isOpen={profileModalOpen} onClose={() => setProfileModalOpen(false)} />
     </div>
   )
 }
