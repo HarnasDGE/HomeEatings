@@ -17,6 +17,13 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // If Supabase is not configured, skip authentication
+    if (!supabase) {
+      console.warn('Supabase not configured - running in offline mode')
+      setLoading(false)
+      return
+    }
+
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null)
@@ -45,6 +52,8 @@ export const AuthProvider = ({ children }) => {
   }, [])
 
   const loadProfile = async (userId) => {
+    if (!supabase) return
+
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -65,6 +74,9 @@ export const AuthProvider = ({ children }) => {
   }
 
   const signInWithEmail = async (email, password) => {
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') }
+    }
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -73,6 +85,9 @@ export const AuthProvider = ({ children }) => {
   }
 
   const signUpWithEmail = async (email, password, fullName) => {
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') }
+    }
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -86,6 +101,9 @@ export const AuthProvider = ({ children }) => {
   }
 
   const signInWithGoogle = async () => {
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') }
+    }
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -96,6 +114,9 @@ export const AuthProvider = ({ children }) => {
   }
 
   const signInWithApple = async () => {
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') }
+    }
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'apple',
       options: {
@@ -106,11 +127,17 @@ export const AuthProvider = ({ children }) => {
   }
 
   const signOut = async () => {
+    if (!supabase) {
+      return { error: new Error('Supabase not configured') }
+    }
     const { error } = await supabase.auth.signOut()
     return { error }
   }
 
   const updateProfile = async (updates) => {
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') }
+    }
     if (!user) return { error: new Error('No user logged in') }
 
     const { data, error } = await supabase
@@ -131,6 +158,9 @@ export const AuthProvider = ({ children }) => {
   }
 
   const uploadAvatar = async (file) => {
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') }
+    }
     if (!user) return { error: new Error('No user logged in') }
 
     const fileExt = file.name.split('.').pop()
