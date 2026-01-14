@@ -3,8 +3,9 @@ import { useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import UserMenu from './UserMenu'
 import AuthModal from '../auth/AuthModal'
+import GroupSelector from '../groups/GroupSelector'
 
-export default function Navigation({ onOpenProfile }) {
+export default function Navigation({ onOpenProfile, onOpenInbox, onOpenManage }) {
   const { user } = useAuth()
   const location = useLocation()
   const [authModalOpen, setAuthModalOpen] = useState(false)
@@ -21,6 +22,8 @@ export default function Navigation({ onOpenProfile }) {
                 <span className="text-3xl">🍽️</span>
                 <span className="text-2xl font-bold text-orange-600">HomeEatings</span>
               </Link>
+
+              {user && <GroupSelector onOpenInbox={onOpenInbox} onOpenManage={onOpenManage} />}
 
               {user && (
                 <div className="hidden md:flex items-center gap-1">

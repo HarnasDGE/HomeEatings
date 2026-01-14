@@ -3,6 +3,8 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { useAuth } from './contexts/AuthContext'
 import Navigation from './components/layout/Navigation'
 import ProfileModal from './components/profile/ProfileModal'
+import InvitationsInbox from './components/groups/InvitationsInbox'
+import GroupsManagePage from './pages/groups/GroupsManagePage'
 import Dashboard from './pages/Dashboard'
 import ProductsPage from './pages/products/ProductsPage'
 import MealsPage from './pages/meals/MealsPage'
@@ -10,6 +12,8 @@ import MealsPage from './pages/meals/MealsPage'
 function App() {
   const { loading } = useAuth()
   const [profileModalOpen, setProfileModalOpen] = useState(false)
+  const [inboxOpen, setInboxOpen] = useState(false)
+  const [manageGroupsOpen, setManageGroupsOpen] = useState(false)
 
   if (loading) {
     return (
@@ -25,7 +29,11 @@ function App() {
   return (
     <BrowserRouter>
       <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
-        <Navigation onOpenProfile={() => setProfileModalOpen(true)} />
+        <Navigation
+          onOpenProfile={() => setProfileModalOpen(true)}
+          onOpenInbox={() => setInboxOpen(true)}
+          onOpenManage={() => setManageGroupsOpen(true)}
+        />
 
         <Routes>
           <Route path="/" element={<Dashboard />} />
@@ -34,6 +42,8 @@ function App() {
         </Routes>
 
         <ProfileModal isOpen={profileModalOpen} onClose={() => setProfileModalOpen(false)} />
+        <InvitationsInbox isOpen={inboxOpen} onClose={() => setInboxOpen(false)} />
+        <GroupsManagePage isOpen={manageGroupsOpen} onClose={() => setManageGroupsOpen(false)} />
       </div>
     </BrowserRouter>
   )
