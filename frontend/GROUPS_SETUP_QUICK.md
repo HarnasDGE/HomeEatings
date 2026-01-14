@@ -1,6 +1,6 @@
-# 👥 Groups and Invitations System - Quick Setup
+# 👥 Groups and Invitations System - Fixed Setup
 
-## Single SQL Block - Copy & Paste
+## Single SQL Block - Copy & Paste (FIXED ORDER)
 
 Skopiuj poniższy kod SQL i wykonaj w **Supabase Dashboard > SQL Editor**.
 
@@ -8,10 +8,15 @@ Skopiuj poniższy kod SQL i wykonaj w **Supabase Dashboard > SQL Editor**.
 -- ============================================
 -- GROUPS AND INVITATIONS SYSTEM
 -- Complete SQL migration for HomeEatings
+-- FIXED: Tables first, then policies
 -- ============================================
 
--- 1. CREATE GROUPS TABLE
-CREATE TABLE groups (
+-- ==========================================
+-- STEP 1: CREATE ALL TABLES FIRST
+-- ==========================================
+
+-- 1.1 CREATE GROUPS TABLE (without policies)
+CREATE TABLE IF NOT EXISTS groups (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT NOT NULL,
   description TEXT,
@@ -20,35 +25,11 @@ CREATE TABLE groups (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-ALTER TABLE groups ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users can view groups they are members of"
-  ON groups FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM group_members
-      WHERE group_members.group_id = groups.id
-      AND group_members.user_id = auth.uid()
-    )
-  );
-
-CREATE POLICY "Users can create groups"
-  ON groups FOR INSERT
-  WITH CHECK (auth.uid() = owner_id);
-
-CREATE POLICY "Group owners can update their groups"
-  ON groups FOR UPDATE
-  USING (auth.uid() = owner_id);
-
-CREATE POLICY "Group owners can delete their groups"
-  ON groups FOR DELETE
-  USING (auth.uid() = owner_id);
-
-CREATE INDEX groups_owner_id_idx ON groups(owner_id);
+CREATE INDEX IF NOT EXISTS groups_owner_id_idx ON groups(owner_id);
 
 
--- 2. CREATE GROUP MEMBERS TABLE
-CREATE TABLE group_members (
+-- 1.2 CREATE GROUP MEMBERS TABLE (without policies)
+CREATE TABLE IF NOT EXISTS group_members (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   group_id UUID REFERENCES groups(id) ON DELETE CASCADE NOT NULL,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
@@ -57,48 +38,12 @@ CREATE TABLE group_members (
   UNIQUE(group_id, user_id)
 );
 
-ALTER TABLE group_members ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users can view members of their groups"
-  ON group_members FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM group_members gm
-      WHERE gm.group_id = group_members.group_id
-      AND gm.user_id = auth.uid()
-    )
-  );
-
-CREATE POLICY "Group owners can add members"
-  ON group_members FOR INSERT
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM groups
-      WHERE groups.id = group_members.group_id
-      AND groups.owner_id = auth.uid()
-    )
-  );
-
-CREATE POLICY "Users can leave groups"
-  ON group_members FOR DELETE
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Group owners can remove members"
-  ON group_members FOR DELETE
-  USING (
-    EXISTS (
-      SELECT 1 FROM groups
-      WHERE groups.id = group_members.group_id
-      AND groups.owner_id = auth.uid()
-    )
-  );
-
-CREATE INDEX group_members_group_id_idx ON group_members(group_id);
-CREATE INDEX group_members_user_id_idx ON group_members(user_id);
+CREATE INDEX IF NOT EXISTS group_members_group_id_idx ON group_members(group_id);
+CREATE INDEX IF NOT EXISTS group_members_user_id_idx ON group_members(user_id);
 
 
--- 3. CREATE GROUP INVITATIONS TABLE
-CREATE TABLE group_invitations (
+-- 1.3 CREATE GROUP INVITATIONS TABLE (without policies)
+CREATE TABLE IF NOT EXISTS group_invitations (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   group_id UUID REFERENCES groups(id) ON DELETE CASCADE NOT NULL,
   inviter_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
@@ -110,12 +55,97 @@ CREATE TABLE group_invitations (
   responded_at TIMESTAMP WITH TIME ZONE
 );
 
+CREATE INDEX IF NOT EXISTS group_invitations_group_id_idx ON group_invitations(group_id);
+CREATE INDEX IF NOT EXISTS group_invitations_invitee_email_idx ON group_invitations(invitee_email);
+CREATE INDEX IF NOT EXISTS group_invitations_invitee_id_idx ON group_invitations(invitee_id);
+CREATE INDEX IF NOT EXISTS group_invitations_status_idx ON group_invitations(status);
+
+
+-- ==========================================
+-- STEP 2: ENABLE RLS AND ADD POLICIES
+-- ==========================================
+
+-- 2.1 GROUPS POLICIES
+ALTER TABLE groups ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view groups they are members of" ON groups;
+CREATE POLICY "Users can view groups they are members of"
+  ON groups FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM group_members
+      WHERE group_members.group_id = groups.id
+      AND group_members.user_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "Users can create groups" ON groups;
+CREATE POLICY "Users can create groups"
+  ON groups FOR INSERT
+  WITH CHECK (auth.uid() = owner_id);
+
+DROP POLICY IF EXISTS "Group owners can update their groups" ON groups;
+CREATE POLICY "Group owners can update their groups"
+  ON groups FOR UPDATE
+  USING (auth.uid() = owner_id);
+
+DROP POLICY IF EXISTS "Group owners can delete their groups" ON groups;
+CREATE POLICY "Group owners can delete their groups"
+  ON groups FOR DELETE
+  USING (auth.uid() = owner_id);
+
+
+-- 2.2 GROUP MEMBERS POLICIES
+ALTER TABLE group_members ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view members of their groups" ON group_members;
+CREATE POLICY "Users can view members of their groups"
+  ON group_members FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM group_members gm
+      WHERE gm.group_id = group_members.group_id
+      AND gm.user_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "Group owners can add members" ON group_members;
+CREATE POLICY "Group owners can add members"
+  ON group_members FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM groups
+      WHERE groups.id = group_members.group_id
+      AND groups.owner_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "Users can leave groups" ON group_members;
+CREATE POLICY "Users can leave groups"
+  ON group_members FOR DELETE
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Group owners can remove members" ON group_members;
+CREATE POLICY "Group owners can remove members"
+  ON group_members FOR DELETE
+  USING (
+    EXISTS (
+      SELECT 1 FROM groups
+      WHERE groups.id = group_members.group_id
+      AND groups.owner_id = auth.uid()
+    )
+  );
+
+
+-- 2.3 GROUP INVITATIONS POLICIES
 ALTER TABLE group_invitations ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view invitations they sent" ON group_invitations;
 CREATE POLICY "Users can view invitations they sent"
   ON group_invitations FOR SELECT
   USING (auth.uid() = inviter_id);
 
+DROP POLICY IF EXISTS "Users can view invitations sent to them" ON group_invitations;
 CREATE POLICY "Users can view invitations sent to them"
   ON group_invitations FOR SELECT
   USING (
@@ -123,6 +153,7 @@ CREATE POLICY "Users can view invitations sent to them"
     auth.email() = invitee_email
   );
 
+DROP POLICY IF EXISTS "Group members can send invitations" ON group_invitations;
 CREATE POLICY "Group members can send invitations"
   ON group_invitations FOR INSERT
   WITH CHECK (
@@ -133,6 +164,7 @@ CREATE POLICY "Group members can send invitations"
     )
   );
 
+DROP POLICY IF EXISTS "Invitees can update their invitation status" ON group_invitations;
 CREATE POLICY "Invitees can update their invitation status"
   ON group_invitations FOR UPDATE
   USING (
@@ -140,13 +172,12 @@ CREATE POLICY "Invitees can update their invitation status"
     auth.email() = invitee_email
   );
 
-CREATE INDEX group_invitations_group_id_idx ON group_invitations(group_id);
-CREATE INDEX group_invitations_invitee_email_idx ON group_invitations(invitee_email);
-CREATE INDEX group_invitations_invitee_id_idx ON group_invitations(invitee_id);
-CREATE INDEX group_invitations_status_idx ON group_invitations(status);
 
+-- ==========================================
+-- STEP 3: CREATE FUNCTIONS
+-- ==========================================
 
--- 4. FUNCTION TO AUTO-LINK INVITATIONS
+-- 3.1 FUNCTION TO AUTO-LINK INVITATIONS
 CREATE OR REPLACE FUNCTION link_invitations_to_user()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -158,13 +189,14 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+DROP TRIGGER IF EXISTS on_user_created_link_invitations ON auth.users;
 CREATE TRIGGER on_user_created_link_invitations
   AFTER INSERT ON auth.users
   FOR EACH ROW
   EXECUTE FUNCTION link_invitations_to_user();
 
 
--- 5. FUNCTION TO ACCEPT INVITATION
+-- 3.2 FUNCTION TO ACCEPT INVITATION
 CREATE OR REPLACE FUNCTION accept_group_invitation(invitation_id UUID)
 RETURNS BOOLEAN AS $$
 DECLARE
@@ -197,7 +229,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 
--- 6. FUNCTION TO REJECT INVITATION
+-- 3.3 FUNCTION TO REJECT INVITATION
 CREATE OR REPLACE FUNCTION reject_group_invitation(invitation_id UUID)
 RETURNS BOOLEAN AS $$
 BEGIN
@@ -214,12 +246,13 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 
--- 7. UPDATE RLS POLICIES FOR PRODUCTS (SHARED ACCESS)
-DROP POLICY IF EXISTS "Users can view their own products" ON products;
-DROP POLICY IF EXISTS "Users can insert their own products" ON products;
-DROP POLICY IF EXISTS "Users can update their own products" ON products;
-DROP POLICY IF EXISTS "Users can delete their own products" ON products;
+-- ==========================================
+-- STEP 4: UPDATE PRODUCTS & MEALS RLS
+-- ==========================================
 
+-- 4.1 UPDATE PRODUCTS POLICIES FOR GROUP ACCESS
+DROP POLICY IF EXISTS "Users can view their own products" ON products;
+DROP POLICY IF EXISTS "Users can view their own and group products" ON products;
 CREATE POLICY "Users can view their own and group products"
   ON products FOR SELECT
   USING (
@@ -232,25 +265,25 @@ CREATE POLICY "Users can view their own and group products"
     )
   );
 
+DROP POLICY IF EXISTS "Users can insert their own products" ON products;
 CREATE POLICY "Users can insert their own products"
   ON products FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update their own products" ON products;
 CREATE POLICY "Users can update their own products"
   ON products FOR UPDATE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete their own products" ON products;
 CREATE POLICY "Users can delete their own products"
   ON products FOR DELETE
   USING (auth.uid() = user_id);
 
 
--- 8. UPDATE RLS POLICIES FOR MEALS (SHARED ACCESS)
+-- 4.2 UPDATE MEALS POLICIES FOR GROUP ACCESS
 DROP POLICY IF EXISTS "Users can view their own meals" ON meals;
-DROP POLICY IF EXISTS "Users can insert their own meals" ON meals;
-DROP POLICY IF EXISTS "Users can update their own meals" ON meals;
-DROP POLICY IF EXISTS "Users can delete their own meals" ON meals;
-
+DROP POLICY IF EXISTS "Users can view their own and group meals" ON meals;
 CREATE POLICY "Users can view their own and group meals"
   ON meals FOR SELECT
   USING (
@@ -263,27 +296,35 @@ CREATE POLICY "Users can view their own and group meals"
     )
   );
 
+DROP POLICY IF EXISTS "Users can insert their own meals" ON meals;
 CREATE POLICY "Users can insert their own meals"
   ON meals FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update their own meals" ON meals;
 CREATE POLICY "Users can update their own meals"
   ON meals FOR UPDATE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete their own meals" ON meals;
 CREATE POLICY "Users can delete their own meals"
   ON meals FOR DELETE
   USING (auth.uid() = user_id);
 
 
--- 9. TRIGGER FOR GROUPS UPDATED_AT
+-- ==========================================
+-- STEP 5: CREATE TRIGGERS & VIEWS
+-- ==========================================
+
+-- 5.1 TRIGGER FOR GROUPS UPDATED_AT
+DROP TRIGGER IF EXISTS update_groups_updated_at ON groups;
 CREATE TRIGGER update_groups_updated_at
   BEFORE UPDATE ON groups
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
 
--- 10. HELPFUL VIEW FOR USER GROUPS
+-- 5.2 HELPFUL VIEW FOR USER GROUPS
 CREATE OR REPLACE VIEW user_groups AS
 SELECT
   g.id,
@@ -301,7 +342,7 @@ GROUP BY g.id, g.name, g.description, g.owner_id, g.created_at, g.updated_at, gm
 
 
 -- ============================================
--- MIGRATION COMPLETE
+-- MIGRATION COMPLETE! ✅
 -- ============================================
 ```
 
@@ -325,16 +366,18 @@ SELECT policyname FROM pg_policies WHERE tablename = 'products';
 
 -- Sprawdź polityki dla meals
 SELECT policyname FROM pg_policies WHERE tablename = 'meals';
+
+-- Sprawdź polityki dla groups
+SELECT policyname FROM pg_policies WHERE tablename = 'groups';
 ```
 
-## Co zostało zrobione
+## Co naprawiłem
 
-✅ **3 nowe tabele:** groups, group_members, group_invitations
-✅ **3 funkcje:** accept, reject, auto-link invitations
-✅ **Zaktualizowane RLS:** products i meals widzą teraz dane grupy
-✅ **Bezpieczeństwo:** Pełne RLS na wszystkich tabelach
-✅ **Indeksy:** Dla szybkich zapytań
+✅ **Poprawna kolejność:** Najpierw tabele, potem polityki RLS
+✅ **DROP IF EXISTS:** Bezpieczne dla ponownego wykonania
+✅ **CREATE IF NOT EXISTS:** Nie wywali się jeśli już istnieje
+✅ **Triggers with DROP:** Najpierw usuwa stare, potem tworzy nowe
 
 ## Gotowe!
 
-Skopiuj cały blok SQL powyżej, wklej w Supabase SQL Editor i kliknij **Run**. Gotowe! 🎉
+Teraz możesz skopiować **cały blok SQL** i wykonać za jednym razem bez błędów! 🎉
