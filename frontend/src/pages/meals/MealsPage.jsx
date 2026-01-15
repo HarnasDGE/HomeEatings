@@ -15,6 +15,9 @@ export default function MealsPage() {
   useEffect(() => {
     if (user) {
       loadMeals()
+    } else {
+      // If no user, stop loading
+      setLoading(false)
     }
   }, [user])
 

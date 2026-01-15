@@ -15,6 +15,9 @@ export default function ProductsPage() {
   useEffect(() => {
     if (user) {
       loadProducts()
+    } else {
+      // If no user, stop loading
+      setLoading(false)
     }
   }, [user])
 

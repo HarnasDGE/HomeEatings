@@ -24,15 +24,35 @@ export const AuthProvider = ({ children }) => {
       return
     }
 
+    // Set timeout to prevent infinite loading
+    const loadingTimeout = setTimeout(() => {
+      console.error('Authentication timeout - setting loading to false')
+      setLoading(false)
+    }, 5000) // 5 second timeout
+
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        loadProfile(session.user.id)
-      } else {
+    supabase.auth.getSession()
+      .then(({ data: { session }, error }) => {
+        clearTimeout(loadingTimeout)
+
+        if (error) {
+          console.error('Error getting session:', error)
+          setLoading(false)
+          return
+        }
+
+        setUser(session?.user ?? null)
+        if (session?.user) {
+          loadProfile(session.user.id)
+        } else {
+          setLoading(false)
+        }
+      })
+      .catch(error => {
+        clearTimeout(loadingTimeout)
+        console.error('Error in getSession:', error)
         setLoading(false)
-      }
-    })
+      })
 
     // Listen for auth changes
     const {
@@ -48,7 +68,10 @@ export const AuthProvider = ({ children }) => {
       }
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      clearTimeout(loadingTimeout)
+      subscription.unsubscribe()
+    }
   }, [])
 
   const loadProfile = async (userId) => {
